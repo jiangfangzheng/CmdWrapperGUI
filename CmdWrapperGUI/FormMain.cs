@@ -17,13 +17,14 @@ namespace CmdWrapperGUI
         Process p;
         StreamWriter input;
 
+        bool startOK = false;
+
         public FormMain()
         {
             InitializeComponent();
 
             // 启动cmd.exe进程
             p = new Process();
-            p.StartInfo.FileName = "cmd.exe";
             // 自定义shell
             p.StartInfo.UseShellExecute = false;
             // 避免显示原始窗口
@@ -34,12 +35,11 @@ namespace CmdWrapperGUI
             p.StartInfo.RedirectStandardOutput = true;
             // 数据接收事件（标准输出重定向至此）
             p.OutputDataReceived += new DataReceivedEventHandler(p_OutputDataReceived);
+            
 
-            p.Start();
-            // 重定向输入
-            input = p.StandardInput;
-            // 开始监控输出（异步读取）
-            p.BeginOutputReadLine();
+
+            // 界面按钮互锁
+            button2.Enabled = false;
         }
 
         void p_OutputDataReceived(object sender, DataReceivedEventArgs e)
@@ -52,7 +52,14 @@ namespace CmdWrapperGUI
         {
             if (this.InvokeRequired)
             {
-                Invoke(new updateDelegate(update), new object[] { msg });
+                try
+                {
+                    Invoke(new updateDelegate(update), new object[] { msg });
+                } catch(Exception e)
+                {
+                    // not to do
+                }
+                
             }
             else
             {
@@ -64,24 +71,51 @@ namespace CmdWrapperGUI
 
         private void button1_Click(object sender, EventArgs e)
         {
-            input.WriteLine(textBox1.Text);
-            textBox1.SelectAll();
+            p.StartInfo.FileName = textBox1.Text;
+            p.StartInfo.Arguments = textBox3.Text;
+            startOK = p.Start();
+            if(startOK)
+            {
+                // 重定向输入
+                input = p.StandardInput;
+                // 开始监控输出（异步读取）
+                p.BeginOutputReadLine();
+
+                // input.WriteLine(textBox1.Text);
+                // textBox1.SelectAll();
+
+                // 界面按钮互锁
+                button1.Enabled = false;
+                button2.Enabled = true;
+            }
         }
 
         private void FormMain_FormClosed(object sender, FormClosedEventArgs e)
         {
-            p.Kill();
-            p.Close();
+            //p.Kill();
+            //p.Close();
+
+            //try
+            //{
+            //    // 获得指定进程
+            //    Process[] p = Process.GetProcessesByName("brook_windows_amd64.exe");
+            //    // 杀死该进程
+            //    p[0].Kill(); 
+            //    MessageBox.Show("进程关闭成功！");
+            //}
+            //catch
+            //{
+            //    MessageBox.Show("无法关闭此进程！");
+            //}
         }
 
         private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // 当用户点击窗体右上角X按钮或(Alt + F4)时发生         
-            if (e.CloseReason == CloseReason.UserClosing) 
+            // 当用户点击窗体右上角X按钮或(Alt+F4)时发生         
+            if (e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
                 this.ShowInTaskbar = false;
-                // this.myIcon.Icon = this.Icon;
                 this.Hide();
             }
         }
@@ -90,6 +124,7 @@ namespace CmdWrapperGUI
         {
             if (e.Button == MouseButtons.Right)
             {
+                this.ShowInTaskbar = false;
                 contextMenuStrip1.Show(Control.MousePosition);
             }
 
@@ -103,7 +138,27 @@ namespace CmdWrapperGUI
 
         private void 退出ToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            // 结束启动的进程
+            if (startOK)
+            {
+                p.Kill();
+                p.Close();
+            }
+
+            // 整个程序退出
             Application.Exit();
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            if (startOK)
+            {
+                p.Kill();
+                p.Close();
+            }
+            button1.Enabled = true;
+            button2.Enabled = false;
+
         }
     }
 }
